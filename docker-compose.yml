@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: m2_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    container_name: backend
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    networks:
+      - backend
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+  frontend:
+    build:
+      context: .   # contexte à la racine du projet
+      dockerfile: frontend/Dockerfile
+    container_name: frontend
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    environment:
+      VITE_API_BASE_URL: /api
+
+networks:
+  backend:
+    name: m2_backend_net
+  frontend:
+    name: m2_frontend_net
+
+volumes:
+  pg_data:
